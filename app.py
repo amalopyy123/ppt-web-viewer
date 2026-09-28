@@ -1,23 +1,22 @@
 import hmac
+import hashlib
 import ipaddress
 import os
 import shutil
-import subprocess
 import tempfile
 from functools import wraps
 from pathlib import Path
+from urllib.parse import quote
 
 from dotenv import load_dotenv
 from flask import Flask, abort, flash, redirect, render_template, request, send_file, session, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
-from werkzeug.utils import secure_filename
 
 
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")
 
 DATA_DIR = BASE_DIR / "data"
-CURRENT_PDF = DATA_DIR / "presentation.pdf"
 ALLOWED_EXTENSIONS = {"ppt", "pptx"}
 
 
@@ -83,27 +82,6 @@ def admin_required(view):
     return wrapped
 
 
-def find_soffice() -> str | None:
-    configured = os.environ.get("SOFFICE_PATH")
-    if configured and Path(configured).is_file():
-        return configured
-
-    command = shutil.which("soffice") or shutil.which("libreoffice")
-    if command:
-        return command
-
-    if os.name == "nt":
-        windows_paths = (
-            Path(r"C:\Program Files\LibreOffice\program\soffice.exe"),
-            Path(r"C:\Program Files (x86)\LibreOffice\program\soffice.exe"),
-        )
-        for path in windows_paths:
-            if path.is_file():
-                return str(path)
-
-    return None
-
-
 def has_allowed_extension(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -117,56 +95,58 @@ def has_valid_signature(path: Path, extension: str) -> bool:
     return signature == bytes.fromhex("D0CF11E0A1B11AE1")
 
 
-def convert_to_pdf(source: Path, output_dir: Path) -> Path:
-    soffice = find_soffice()
-    if not soffice:
-        raise RuntimeError(
-            "LibreOffice is not installed. Install it or set the SOFFICE_PATH environment variable."
-        )
+def find_all_presentations() -> list[Path]:
+    if not DATA_DIR.is_dir():
+        return []
+    return [
+        *DATA_DIR.glob("presentation-*.ppt"),
+        *DATA_DIR.glob("presentation-*.pptx"),
+    ]
 
-    profile_dir = output_dir / "libreoffice-profile"
-    profile_uri = profile_dir.resolve().as_uri()
-    result = subprocess.run(
-        [
-            soffice,
-            "--headless",
-            f"-env:UserInstallation={profile_uri}",
-            "--convert-to",
-            "pdf",
-            "--outdir",
-            str(output_dir),
-            str(source),
-        ],
-        capture_output=True,
-        text=True,
-        timeout=180,
-        check=False,
-    )
 
-    converted = output_dir / f"{source.stem}.pdf"
-    if result.returncode != 0 or not converted.is_file():
-        details = (result.stderr or result.stdout or "Unknown conversion error").strip()
-        raise RuntimeError(f"PPT conversion failed: {details}")
+def find_current_presentation() -> Path | None:
+    candidates = find_all_presentations()
+    return max(candidates, key=lambda path: path.stat().st_mtime, default=None)
 
-    return converted
+
+def public_file_url(filename: str) -> str:
+    configured_base = os.environ.get("PUBLIC_BASE_URL", "").strip().rstrip("/")
+    if configured_base:
+        return f"{configured_base}{url_for('presentation_file', filename=filename)}"
+    return url_for("presentation_file", filename=filename, _external=True, _scheme=request.scheme)
+
+
+def office_viewer_url(filename: str) -> str:
+    source_url = public_file_url(filename)
+    return f"https://view.officeapps.live.com/op/embed.aspx?src={quote(source_url, safe='')}"
 
 
 @app.get("/")
 def index():
-    return render_template("index.html", pdf_exists=CURRENT_PDF.is_file())
+    presentation = find_current_presentation()
+    return render_template(
+        "index.html",
+        presentation=presentation,
+        viewer_url=office_viewer_url(presentation.name) if presentation else None,
+    )
 
 
-@app.get("/document.pdf")
-def document():
-    if not CURRENT_PDF.is_file():
+@app.get("/files/<filename>")
+def presentation_file(filename):
+    presentation = find_current_presentation()
+    if not presentation or filename != presentation.name:
         return "No presentation has been uploaded yet.", 404
 
     return send_file(
-        CURRENT_PDF,
-        mimetype="application/pdf",
+        presentation,
+        mimetype=(
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            if presentation.suffix.lower() == ".pptx"
+            else "application/vnd.ms-powerpoint"
+        ),
         conditional=True,
-        max_age=0,
-        download_name="presentation.pdf",
+        max_age=3600,
+        download_name=presentation.name,
     )
 
 
@@ -199,8 +179,8 @@ def admin_upload():
             flash("请选择一个 PPT 或 PPTX 文件。", "error")
             return redirect(url_for("admin_upload"))
 
-        filename = secure_filename(uploaded.filename)
-        if not filename or not has_allowed_extension(filename):
+        filename = uploaded.filename
+        if not has_allowed_extension(filename):
             flash("只允许上传 .ppt 或 .pptx 文件。", "error")
             return redirect(url_for("admin_upload"))
 
@@ -214,22 +194,27 @@ def admin_upload():
                 if not has_valid_signature(source, extension):
                     raise ValueError("文件内容与 PPT/PPTX 格式不符。")
 
-                converted = convert_to_pdf(source, temp_dir)
+                digest = hashlib.sha256(source.read_bytes()).hexdigest()[:16]
                 DATA_DIR.mkdir(parents=True, exist_ok=True)
-                replacement = DATA_DIR / "presentation.new.pdf"
-                shutil.copyfile(converted, replacement)
-                os.replace(replacement, CURRENT_PDF)
+                destination = DATA_DIR / f"presentation-{digest}.{extension}"
+                replacement = DATA_DIR / f".presentation-upload.{extension}"
+                shutil.copyfile(source, replacement)
+                os.replace(replacement, destination)
 
-            flash("PPT 已转换并发布。", "success")
-        except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as exc:
+                for old_file in find_all_presentations():
+                    if old_file != destination:
+                        old_file.unlink(missing_ok=True)
+
+            flash("PPT 已上传并发布到微软在线预览。", "success")
+        except (OSError, RuntimeError, ValueError) as exc:
             flash(str(exc), "error")
 
         return redirect(url_for("admin_upload"))
 
     return render_template(
         "admin_upload.html",
-        pdf_exists=CURRENT_PDF.is_file(),
-        converter_available=find_soffice() is not None,
+        presentation=find_current_presentation(),
+        public_base_url=os.environ.get("PUBLIC_BASE_URL", "").strip(),
     )
 
 

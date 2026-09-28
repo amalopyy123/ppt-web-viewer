@@ -16,8 +16,8 @@ venv/
 .env.*
 !.env.example
 
-# Generated presentation files
-data/*.pdf
+# Uploaded presentation files
+data/*
 !data/.gitkeep
 
 # Logs and editor files
