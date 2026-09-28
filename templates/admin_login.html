@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}管理员登录{% endblock %}
+{% block body %}
+<main class="center-page">
+    <section class="card compact-card">
+        <h1>管理员登录</h1>
+        <p class="muted">登录后可上传并替换当前演示文稿。</p>
+        {% include "flash_messages.html" %}
+        <form method="post" class="form-stack">
+            <label for="password">管理员密码</label>
+            <input id="password" name="password" type="password" required autofocus autocomplete="current-password">
+            <button class="button" type="submit">登录</button>
+        </form>
+    </section>
+</main>
+{% endblock %}

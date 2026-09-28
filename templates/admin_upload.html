@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}上传演示文稿{% endblock %}
+{% block body %}
+<main class="center-page">
+    <section class="card">
+        <div class="card-header">
+            <div>
+                <h1>上传演示文稿</h1>
+                <p class="muted">上传新的 PPT/PPTX 会替换当前内容。</p>
+            </div>
+            <form method="post" action="{{ url_for('admin_logout') }}">
+                <button class="text-button" type="submit">退出</button>
+            </form>
+        </div>
+
+        {% include "flash_messages.html" %}
+
+        {% if not converter_available %}
+            <div class="notice warning">尚未检测到 LibreOffice，安装后才能转换 PPT。</div>
+        {% endif %}
+
+        <form method="post" enctype="multipart/form-data" class="form-stack">
+            <label for="presentation">选择 PPT 或 PPTX</label>
+            <input id="presentation" name="presentation" type="file" accept=".ppt,.pptx" required>
+            <small>最大 100 MB。转换后，普通文字通常可以选中、搜索和复制。</small>
+            <button class="button" type="submit" {% if not converter_available %}disabled{% endif %}>上传并发布</button>
+        </form>
+
+        <div class="status-row">
+            <span>当前状态：{{ "已发布" if pdf_exists else "尚未发布" }}</span>
+            <a href="{{ url_for('index') }}" target="_blank" rel="noopener">查看前台</a>
+        </div>
+    </section>
+</main>
+{% endblock %}

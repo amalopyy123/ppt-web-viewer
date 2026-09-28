@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}在线演示文稿{% endblock %}
+{% block body %}
+<main class="viewer-page">
+    <header class="viewer-header">
+        <h1>在线演示文稿</h1>
+        {% if pdf_exists %}
+            <a class="button secondary" href="{{ url_for('document') }}" target="_blank" rel="noopener">新窗口打开</a>
+        {% endif %}
+    </header>
+
+    {% if pdf_exists %}
+        <iframe class="pdf-viewer" src="{{ url_for('document') }}#view=FitH" title="演示文稿"></iframe>
+    {% else %}
+        <section class="empty-state">
+            <h2>暂时没有内容</h2>
+            <p>管理员上传 PPT 后，内容会显示在这里。</p>
+        </section>
+    {% endif %}
+</main>
+{% endblock %}
