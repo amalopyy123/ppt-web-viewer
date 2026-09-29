@@ -3,22 +3,19 @@
 {% block body %}
 <main class="viewer-page">
     <header class="viewer-header">
-        <h1>在线演示文稿</h1>
-        {% if presentation %}
-            <a class="button secondary" href="{{ url_for('presentation_file', filename=presentation.name) }}">下载原文件</a>
+        <h1>PDF 文档</h1>
+        {% if pdf_exists %}
+            <a class="button secondary" href="{{ url_for('document') }}" target="_blank" rel="noopener">新窗口打开</a>
         {% endif %}
     </header>
 
-    {% if presentation %}
-        <iframe class="pdf-viewer" src="{{ viewer_url }}" title="演示文稿" allowfullscreen></iframe>
+    {% if pdf_exists %}
+        <iframe class="pdf-viewer" src="{{ url_for('document') }}#view=FitH" title="PDF 文档"></iframe>
     {% else %}
         <section class="empty-state">
             <h2>暂时没有内容</h2>
-            <p>管理员上传 PPT 后，内容会显示在这里。</p>
+            <p>管理员上传 PDF 后，文档会显示在这里。</p>
         </section>
-    {% endif %}
-    {% if presentation %}
-        <p class="viewer-credit">内容通过 Microsoft Office 在线服务展示。</p>
     {% endif %}
 </main>
 {% endblock %}

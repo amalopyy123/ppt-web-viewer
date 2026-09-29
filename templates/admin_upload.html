@@ -5,8 +5,8 @@
     <section class="card">
         <div class="card-header">
             <div>
-                <h1>上传演示文稿</h1>
-                <p class="muted">上传新的 PPT/PPTX 会替换当前内容。</p>
+                <h1>上传 PDF</h1>
+                <p class="muted">上传新文件会替换当前展示的 PDF。</p>
             </div>
             <form method="post" action="{{ url_for('admin_logout') }}">
                 <button class="text-button" type="submit">退出</button>
@@ -15,19 +15,15 @@
 
         {% include "flash_messages.html" %}
 
-        {% if not public_base_url %}
-            <div class="notice warning">尚未配置 PUBLIC_BASE_URL。部署后请填写公网 HTTPS 域名，微软服务器才能读取 PPT。</div>
-        {% endif %}
-
         <form method="post" enctype="multipart/form-data" class="form-stack">
-            <label for="presentation">选择 PPT 或 PPTX</label>
-            <input id="presentation" name="presentation" type="file" accept=".ppt,.pptx" required>
-            <small>最大 100 MB。文件会通过微软 Office 在线预览服务展示。</small>
-            <button class="button" type="submit">上传并发布</button>
+            <label for="pdf">选择 PDF 文件</label>
+            <input id="pdf" name="pdf" type="file" accept="application/pdf,.pdf" required>
+            <small>最大 100 MB。带有文字层的 PDF 支持选择、搜索和复制文字。</small>
+            <button class="button" type="submit">上传并替换</button>
         </form>
 
         <div class="status-row">
-            <span>当前状态：{{ "已发布" if presentation else "尚未发布" }}</span>
+            <span>当前状态：{{ "已发布" if pdf_exists else "尚未发布" }}</span>
             <a href="{{ url_for('index') }}" target="_blank" rel="noopener">查看前台</a>
         </div>
     </section>

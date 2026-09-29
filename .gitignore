@@ -16,7 +16,7 @@ venv/
 .env.*
 !.env.example
 
-# Uploaded presentation files
+# Uploaded PDF files
 data/*
 !data/.gitkeep
 

@@ -1,12 +1,10 @@
 import hmac
-import hashlib
 import ipaddress
 import os
 import shutil
 import tempfile
 from functools import wraps
 from pathlib import Path
-from urllib.parse import quote
 
 from dotenv import load_dotenv
 from flask import Flask, abort, flash, redirect, render_template, request, send_file, session, url_for
@@ -17,7 +15,7 @@ BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")
 
 DATA_DIR = BASE_DIR / "data"
-ALLOWED_EXTENSIONS = {"ppt", "pptx"}
+CURRENT_PDF = DATA_DIR / "presentation.pdf"
 
 
 def env_bool(name: str, default: bool = False) -> bool:
@@ -82,71 +80,26 @@ def admin_required(view):
     return wrapped
 
 
-def has_allowed_extension(filename: str) -> bool:
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
-
-
-def has_valid_signature(path: Path, extension: str) -> bool:
+def has_valid_pdf(path: Path) -> bool:
     with path.open("rb") as uploaded:
-        signature = uploaded.read(8)
-
-    if extension == "pptx":
-        return signature.startswith(b"PK")
-    return signature == bytes.fromhex("D0CF11E0A1B11AE1")
-
-
-def find_all_presentations() -> list[Path]:
-    if not DATA_DIR.is_dir():
-        return []
-    return [
-        *DATA_DIR.glob("presentation-*.ppt"),
-        *DATA_DIR.glob("presentation-*.pptx"),
-    ]
-
-
-def find_current_presentation() -> Path | None:
-    candidates = find_all_presentations()
-    return max(candidates, key=lambda path: path.stat().st_mtime, default=None)
-
-
-def public_file_url(filename: str) -> str:
-    configured_base = os.environ.get("PUBLIC_BASE_URL", "").strip().rstrip("/")
-    if configured_base:
-        return f"{configured_base}{url_for('presentation_file', filename=filename)}"
-    return url_for("presentation_file", filename=filename, _external=True, _scheme=request.scheme)
-
-
-def office_viewer_url(filename: str) -> str:
-    source_url = public_file_url(filename)
-    return f"https://view.officeapps.live.com/op/embed.aspx?src={quote(source_url, safe='')}"
+        return uploaded.read(5) == b"%PDF-"
 
 
 @app.get("/")
 def index():
-    presentation = find_current_presentation()
-    return render_template(
-        "index.html",
-        presentation=presentation,
-        viewer_url=office_viewer_url(presentation.name) if presentation else None,
-    )
+    return render_template("index.html", pdf_exists=CURRENT_PDF.is_file())
 
 
-@app.get("/files/<filename>")
-def presentation_file(filename):
-    presentation = find_current_presentation()
-    if not presentation or filename != presentation.name:
-        return "No presentation has been uploaded yet.", 404
-
+@app.get("/document.pdf")
+def document():
+    if not CURRENT_PDF.is_file():
+        return "No PDF has been uploaded yet.", 404
     return send_file(
-        presentation,
-        mimetype=(
-            "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-            if presentation.suffix.lower() == ".pptx"
-            else "application/vnd.ms-powerpoint"
-        ),
+        CURRENT_PDF,
+        mimetype="application/pdf",
         conditional=True,
-        max_age=3600,
-        download_name=presentation.name,
+        max_age=0,
+        download_name="presentation.pdf",
     )
 
 
@@ -174,47 +127,37 @@ def admin_login():
 @admin_required
 def admin_upload():
     if request.method == "POST":
-        uploaded = request.files.get("presentation")
+        uploaded = request.files.get("pdf")
         if not uploaded or not uploaded.filename:
-            flash("请选择一个 PPT 或 PPTX 文件。", "error")
+            flash("请选择一个 PDF 文件。", "error")
             return redirect(url_for("admin_upload"))
 
-        filename = uploaded.filename
-        if not has_allowed_extension(filename):
-            flash("只允许上传 .ppt 或 .pptx 文件。", "error")
+        if Path(uploaded.filename).suffix.lower() != ".pdf":
+            flash("只允许上传 .pdf 文件。", "error")
             return redirect(url_for("admin_upload"))
 
-        extension = filename.rsplit(".", 1)[1].lower()
         try:
-            with tempfile.TemporaryDirectory(prefix="ppt-upload-") as temp_name:
-                temp_dir = Path(temp_name)
-                source = temp_dir / f"presentation.{extension}"
-                uploaded.save(source)
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile(
+                mode="wb", prefix=".presentation-", suffix=".pdf", dir=DATA_DIR, delete=False
+            ) as temporary:
+                replacement = Path(temporary.name)
+                shutil.copyfileobj(uploaded.stream, temporary)
 
-                if not has_valid_signature(source, extension):
-                    raise ValueError("文件内容与 PPT/PPTX 格式不符。")
+            if not has_valid_pdf(replacement):
+                replacement.unlink(missing_ok=True)
+                raise ValueError("文件内容不是有效的 PDF 格式。")
 
-                digest = hashlib.sha256(source.read_bytes()).hexdigest()[:16]
-                DATA_DIR.mkdir(parents=True, exist_ok=True)
-                destination = DATA_DIR / f"presentation-{digest}.{extension}"
-                replacement = DATA_DIR / f".presentation-upload.{extension}"
-                shutil.copyfile(source, replacement)
-                os.replace(replacement, destination)
-
-                for old_file in find_all_presentations():
-                    if old_file != destination:
-                        old_file.unlink(missing_ok=True)
-
-            flash("PPT 已上传并发布到微软在线预览。", "success")
-        except (OSError, RuntimeError, ValueError) as exc:
+            os.replace(replacement, CURRENT_PDF)
+            flash("PDF 已上传并发布。", "success")
+        except (OSError, ValueError) as exc:
             flash(str(exc), "error")
 
         return redirect(url_for("admin_upload"))
 
     return render_template(
         "admin_upload.html",
-        presentation=find_current_presentation(),
-        public_base_url=os.environ.get("PUBLIC_BASE_URL", "").strip(),
+        pdf_exists=CURRENT_PDF.is_file(),
     )
 
 
