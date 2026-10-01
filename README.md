@@ -38,7 +38,6 @@ Recommended local Nginx configuration in .env:
 
     HOST=127.0.0.1
     PORT=5000
-    PUBLIC_BASE_URL=https://example.com
     TRUST_PROXY=true
     ADMIN_IP_WHITELIST=203.0.113.10
 
@@ -50,7 +49,6 @@ For direct public binding without Nginx, explicitly configure:
 
 ADMIN_IP_WHITELIST accepts individual addresses and CIDR ranges separated by commas, for example 203.0.113.10,192.168.1.0/24. It protects only the administrator URLs; the presentation remains public.
 
-PUBLIC_BASE_URL must be the public HTTPS origin of this website. It is used to give PDF.js a URL that mobile browsers can load. The PDF endpoint is intentionally public and sends an Access-Control-Allow-Origin header.
 
 ## Production
 

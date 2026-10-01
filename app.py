@@ -5,7 +5,6 @@ import shutil
 import tempfile
 from functools import wraps
 from pathlib import Path
-from urllib.parse import quote
 
 from dotenv import load_dotenv
 from flask import Flask, abort, flash, redirect, render_template, request, send_file, session, url_for
@@ -88,24 +87,14 @@ def has_valid_pdf(path: Path) -> bool:
 
 @app.get("/")
 def index():
-    pdf_url = public_pdf_url() if CURRENT_PDF.is_file() else None
-    viewer_url = (
-        f"https://mozilla.github.io/pdf.js/web/viewer.html?file={quote(pdf_url, safe='')}"
-        if pdf_url
-        else None
-    )
-    return render_template(
-        "index.html",
-        pdf_exists=CURRENT_PDF.is_file(),
-        viewer_url=viewer_url,
-    )
+    return render_template("index.html", pdf_exists=CURRENT_PDF.is_file())
 
 
-def public_pdf_url() -> str:
-    configured_base = os.environ.get("PUBLIC_BASE_URL", "").strip().rstrip("/")
-    if configured_base:
-        return f"{configured_base}{url_for('document')}"
-    return url_for("document", _external=True, _scheme=request.scheme)
+@app.get("/pdf-viewer")
+def pdf_viewer():
+    if not CURRENT_PDF.is_file():
+        return redirect(url_for("index"))
+    return render_template("pdf_viewer.html")
 
 
 @app.get("/document.pdf")

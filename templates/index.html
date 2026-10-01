@@ -1,21 +1,15 @@
 {% extends "base.html" %}
-{% block title %}在线演示文稿{% endblock %}
+{% block title %}PDF Viewer{% endblock %}
 {% block body %}
 <main class="viewer-page">
     <header class="viewer-header">
-        <h1>PDF 文档</h1>
-        {% if pdf_exists %}
-            <a class="button secondary" href="{{ url_for('document') }}" target="_blank" rel="noopener">原文件</a>
-        {% endif %}
+        <h1>PDF Document</h1>
+        {% if pdf_exists %}<a class="button secondary" href="{{ url_for('pdf_viewer') }}">Open Viewer</a>{% endif %}
     </header>
-
     {% if pdf_exists %}
-        <iframe class="pdf-viewer" src="{{ viewer_url }}" title="PDF 文档" allow="fullscreen"></iframe>
+        <iframe class="pdf-viewer" src="{{ url_for('pdf_viewer') }}" title="PDF Document"></iframe>
     {% else %}
-        <section class="empty-state">
-            <h2>暂时没有内容</h2>
-            <p>管理员上传 PDF 后，文档会显示在这里。</p>
-        </section>
+        <section class="empty-state"><h2>No document yet</h2><p>An administrator must upload a PDF first.</p></section>
     {% endif %}
 </main>
 {% endblock %}

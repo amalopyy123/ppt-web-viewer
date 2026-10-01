@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PDF Viewer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='pdf_viewer.css') }}">
+</head>
+<body>
+    <header class="toolbar">
+        <a href="{{ url_for('index') }}">Back</a>
+        <button id="prev" type="button">Prev</button>
+        <span id="page-status">Loading...</span>
+        <button id="next" type="button">Next</button>
+        <button id="zoom-out" type="button">-</button>
+        <button id="zoom-in" type="button">+</button>
+        <a href="{{ url_for('document') }}">Download</a>
+    </header>
+    <main id="viewer"></main>
+    <div id="error" class="error" hidden>Unable to load PDF. Please download the file.</div>
+    <script type="module" src="{{ url_for('static', filename='pdf_viewer.js') }}"></script>
+</body>
+</html>

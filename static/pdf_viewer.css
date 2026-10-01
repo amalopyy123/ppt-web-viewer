@@ -1,0 +1,12 @@
+html, body { height: 100%; margin: 0; }
+body { display: grid; grid-template-rows: auto 1fr; background: #525659; font-family: sans-serif; }
+.toolbar { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px; color: white; background: #283142; }
+.toolbar button, .toolbar a { padding: 7px 10px; border: 1px solid #68758d; border-radius: 6px; color: inherit; background: #374258; text-decoration: none; }
+#viewer { overflow: auto; padding: 20px 4px; text-align: center; }
+.page { position: relative; display: inline-block; margin-bottom: 20px; background: white; box-shadow: 0 4px 18px rgb(0 0 0 / 35%); }
+.page canvas, .text-layer { position: absolute; inset: 0; }
+.text-layer { overflow: hidden; line-height: 1; }
+.text-layer span { position: absolute; color: transparent; cursor: text; white-space: pre; transform-origin: 0 0; }
+.text-layer ::selection { background: rgb(0 96 255 / 28%); }
+.error { position: fixed; inset: 50% auto auto 50%; padding: 16px; background: #f8d7da; transform: translate(-50%, -50%); }
+@media (max-width: 600px) { .toolbar { gap: 4px; padding: 5px 3px; } .toolbar button, .toolbar a { padding: 6px 7px; font-size: 13px; } }
