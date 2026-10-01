@@ -29,7 +29,12 @@ async function renderPage(number) {
     viewer.replaceChildren(wrapper);
     await page.render({ canvasContext: canvas.getContext("2d", { alpha: false }), viewport, transform: ratio !== 1 ? [ratio, 0, 0, ratio, 0, 0] : null }).promise;
     const textContent = await page.getTextContent();
-    pdfjsLib.renderTextLayer({ textContentSource: textContent, container: textLayer, viewport });
+    const textLayerBuilder = new pdfjsLib.TextLayer({
+        textContentSource: textContent,
+        container: textLayer,
+        viewport,
+    });
+    await textLayerBuilder.render();
     status.textContent = String(number) + " / " + String(pdf.numPages);
     prev.disabled = number <= 1;
     next.disabled = number >= pdf.numPages;
