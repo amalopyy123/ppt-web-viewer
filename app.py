@@ -5,6 +5,7 @@ import shutil
 import tempfile
 from functools import wraps
 from pathlib import Path
+from urllib.parse import quote
 
 from dotenv import load_dotenv
 from flask import Flask, abort, flash, redirect, render_template, request, send_file, session, url_for
@@ -87,20 +88,40 @@ def has_valid_pdf(path: Path) -> bool:
 
 @app.get("/")
 def index():
-    return render_template("index.html", pdf_exists=CURRENT_PDF.is_file())
+    pdf_url = public_pdf_url() if CURRENT_PDF.is_file() else None
+    viewer_url = (
+        f"https://mozilla.github.io/pdf.js/web/viewer.html?file={quote(pdf_url, safe='')}"
+        if pdf_url
+        else None
+    )
+    return render_template(
+        "index.html",
+        pdf_exists=CURRENT_PDF.is_file(),
+        viewer_url=viewer_url,
+    )
+
+
+def public_pdf_url() -> str:
+    configured_base = os.environ.get("PUBLIC_BASE_URL", "").strip().rstrip("/")
+    if configured_base:
+        return f"{configured_base}{url_for('document')}"
+    return url_for("document", _external=True, _scheme=request.scheme)
 
 
 @app.get("/document.pdf")
 def document():
     if not CURRENT_PDF.is_file():
         return "No PDF has been uploaded yet.", 404
-    return send_file(
+    response = send_file(
         CURRENT_PDF,
         mimetype="application/pdf",
         conditional=True,
         max_age=0,
         download_name="presentation.pdf",
     )
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Content-Disposition"] = "inline; filename=presentation.pdf"
+    return response
 
 
 @app.route("/admin", methods=["GET", "POST"])

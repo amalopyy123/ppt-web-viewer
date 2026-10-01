@@ -5,12 +5,12 @@
     <header class="viewer-header">
         <h1>PDF 文档</h1>
         {% if pdf_exists %}
-            <a class="button secondary" href="{{ url_for('document') }}" target="_blank" rel="noopener">新窗口打开</a>
+            <a class="button secondary" href="{{ url_for('document') }}" target="_blank" rel="noopener">原文件</a>
         {% endif %}
     </header>
 
     {% if pdf_exists %}
-        <iframe class="pdf-viewer" src="{{ url_for('document') }}#view=FitH" title="PDF 文档"></iframe>
+        <iframe class="pdf-viewer" src="{{ viewer_url }}" title="PDF 文档" allow="fullscreen"></iframe>
     {% else %}
         <section class="empty-state">
             <h2>暂时没有内容</h2>
